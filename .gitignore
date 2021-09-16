@@ -17,3 +17,8 @@
 CMakeFiles
 
 Cargo.lock
+
+!*.rs
+!Cargo.toml
+!CMakeLists.txt
+
