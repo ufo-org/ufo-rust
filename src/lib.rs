@@ -1,34 +1,23 @@
 // #![feature(ptr_internals, once_cell, slice_ptr_get)]
 
 use std::{io::Error, sync::Arc};
-use ufos_core::*;
+use ufo_core::*;
 
 pub struct UfoCore {
-    core: Arc<ufos_core::UfoCore>,
+    core: Arc<ufo_core::UfoCore>,
 }
 
 impl UfoCore {
     pub fn new_ufo_core(config: UfoCoreConfig) -> Result<UfoCore, Error> {
-        let core = ufos_core::UfoCore::new(config)?;
+        let core = ufo_core::UfoCore::new(config)?;
         Ok(UfoCore { core })
-    }
-
-    pub fn ufo_prototype(
-        header_size: usize,
-        stride: usize,
-        min_load_ct: Option<usize>,
-        read_only: bool,
-    ) -> UfoObjectConfigPrototype {
-        UfoObjectConfigPrototype::new_prototype(header_size, stride, min_load_ct, read_only)
     }
 
     pub fn new_ufo(
         &self,
-        prototype: &UfoObjectConfigPrototype,
-        ct: usize,
-        populate: Box<UfoPopulateFn>,
+        prototype: UfoObjectParams,
     ) -> Result<UfoHandle, UfoAllocateErr> {
-        let ufo = self.core.allocate_ufo(prototype.new_config(ct, populate))?;
+        let ufo = self.core.allocate_ufo(prototype.new_config())?;
         Ok(UfoHandle { ufo })
     }
 }
@@ -87,7 +76,7 @@ mod tests {
         fmt::Debug,
         mem::size_of,
     };
-    use ufos_core::{UfoAllocateErr, UfoCoreConfig};
+    use ufo_core::{UfoAllocateErr, UfoCoreConfig};
 
     #[test]
     fn core_starts() {
@@ -120,17 +109,13 @@ mod tests {
         };
         let core = UfoCore::new_ufo_core(config).expect("error getting core");
 
-        let ufo_prototype = UfoObjectConfigPrototype::new_prototype(
+        let ufo_params = UfoObjectParams {
             header_size,
-            size_of::<T>(),
-            Some(min_load),
+            stride: size_of::<T>(),
+            min_load_ct: Some(min_load),
             read_only,
-        );
-
-        let o = core.new_ufo(
-            &ufo_prototype,
-            body_size,
-            Box::new(|start, end, fill| {
+            element_ct: body_size,
+            populate: Box::new(|start, end, fill| {
                 let slice = unsafe {
                     std::slice::from_raw_parts_mut::<T>(fill.cast(), size_of::<T>() * (end - start))
                 };
@@ -139,8 +124,10 @@ mod tests {
                 }
 
                 Ok(())
-            }),
-        )?;
+            })
+        };
+
+        let o = core.new_ufo(ufo_params)?;
 
         Ok((core, o))
     }
@@ -204,13 +191,13 @@ mod tests {
 
     #[test]
     fn large_load() -> anyhow::Result<()> {
-        use stderrlog;
-        stderrlog::new()
-            // .module("ufo_core")
-            .verbosity(4)
-            .timestamp(stderrlog::Timestamp::Microsecond)
-            .init()
-            .unwrap();
+        // use stderrlog;
+        // stderrlog::new()
+        //     // .module("ufo_core")
+        //     .verbosity(4)
+        //     .timestamp(stderrlog::Timestamp::Microsecond)
+        //     .init()
+        //     .unwrap();
 
         let ct = 1000 * 1000 * 2000;
         let (core, o) = basic_test_object::<u64>(0, ct, 4 * 1024 * 1024, false)?;
