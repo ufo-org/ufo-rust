@@ -13,12 +13,16 @@ impl UfoCore {
         Ok(UfoCore { core })
     }
 
-    pub fn new_ufo(
-        &self,
-        prototype: UfoObjectParams,
-    ) -> Result<UfoHandle, UfoAllocateErr> {
-        let ufo = self.core.allocate_ufo(prototype.new_config())?;
+    pub fn new_ufo(&self, prototype: UfoObjectParams) -> Result<UfoHandle, UfoAllocateErr> {
+        let ufo =  Some(self.core.allocate_ufo(prototype.new_config())?);
         Ok(UfoHandle { ufo })
+    }
+
+    pub fn new_event_callback<F>(
+        &self,
+        callback: Option<Box<UfoEventConsumer>>,
+    ) -> Result<(), UfoInternalErr> {
+        self.core.new_event_callback(callback)
     }
 }
 
@@ -29,30 +33,40 @@ impl Drop for UfoCore {
 }
 
 pub struct UfoHandle {
-    ufo: WrappedUfoObject,
+    ufo: Option<WrappedUfoObject>,
 }
 
-// unsafe impl Send for UfoHandle {}
-
 impl UfoHandle {
-    pub fn header_ptr(&self) -> Result<*mut std::ffi::c_void, UfoLookupErr> {
-        Ok(self.ufo.read()?.header_ptr())
+    pub fn header_ptr(&self) -> Result<*mut std::ffi::c_void, UfoInternalErr> {
+        self.ufo.as_ref()
+            .ok_or(UfoInternalErr::UfoNotFound)
+            .and_then(|ufo| Ok(ufo.read()?.header_ptr()))
     }
 
-    pub fn body_ptr(&self) -> Result<*mut std::ffi::c_void, UfoLookupErr> {
-        Ok(self.ufo.read()?.body_ptr())
+    pub fn body_ptr(&self) -> Result<*mut std::ffi::c_void, UfoInternalErr> {
+        self.ufo.as_ref()
+            .ok_or(UfoInternalErr::UfoNotFound)
+            .and_then(|ufo| Ok(ufo.read()?.body_ptr()))
     }
 
-    pub fn reset(&self) -> Result<(), UfoLookupErr> {
-        let waiter = self.ufo.write()?.reset()?;
-        waiter.wait();
-        Ok(())
+    pub fn reset(&self) -> Result<(), UfoInternalErr> {
+        self.ufo.as_ref()
+        .ok_or(UfoInternalErr::UfoNotFound)
+        .and_then(|ufo| {
+            let waiter = ufo.write()?.reset()?;
+            waiter.wait();
+            Ok(())
+        })
     }
 
-    pub fn free(self) -> Result<(), UfoLookupErr> {
-        let waiter = self.ufo.write()?.free()?;
-        waiter.wait();
-        Ok(())
+    pub fn free(mut self) -> Result<(), UfoInternalErr> {
+        self.ufo.take()
+            .ok_or(UfoInternalErr::UfoNotFound)
+            .and_then(|ufo| {
+                let waiter = ufo.write()?.free()?;
+                waiter.wait();
+                Ok(())
+            })
     }
 }
 
@@ -60,8 +74,10 @@ impl Drop for UfoHandle {
     #[allow(unused_must_use)]
     fn drop(&mut self) {
         // If the lock fails then there is something majorly wrong going on, don't panic inside a panic
-        if let Ok(mut ufo) = self.ufo.write() {
-            ufo.free(); // may have failed if the core is shutdown
+        if let Some(ufo) = self.ufo.take() {
+            if let Ok(mut ufo) = ufo.write() {
+                ufo.free(); // may have failed if the core is shutdown
+            }
         }
     }
 }
@@ -124,7 +140,8 @@ mod tests {
                 }
 
                 Ok(())
-            })
+            }),
+            writeback_listener: None,
         };
 
         let o = core.new_ufo(ufo_params)?;
@@ -143,6 +160,24 @@ mod tests {
         for x in 0..1000 * 1000 {
             assert_eq!(x as u32, arr[x]);
         }
+
+        std::mem::drop(core);
+        Ok(())
+    }
+
+    #[test]
+    fn free_ufo() -> Result<(), UfoInternalErr> {
+        // use stderrlog;
+        // stderrlog::new()
+        //     // .module("ufo_core")
+        //     .verbosity(4)
+        //     .timestamp(stderrlog::Timestamp::Microsecond)
+        //     .init()
+        //     .unwrap();
+
+        let (core, o) = basic_test_object::<u32>(0, 1000 * 1000, 4096, false)?;
+
+        o.free()?;
 
         std::mem::drop(core);
         Ok(())
