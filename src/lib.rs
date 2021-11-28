@@ -118,10 +118,17 @@ mod tests {
         T: Sized + Integer + TryFrom<usize>,
         <T as TryFrom<usize>>::Error: Debug,
     {
+        // stderrlog::new()
+        //     // .module("ufo_core")
+        //     .verbosity(2)
+        //     .timestamp(stderrlog::Timestamp::Microsecond)
+        //     .init()
+        //     .unwrap();
+
         let config = UfoCoreConfig {
             writeback_temp_path: "/tmp".to_string(),
-            high_watermark: 1024 * 1024 * 1024,
-            low_watermark: 512 * 1024 * 1024,
+            high_watermark: 1024 * 1024 * 20,
+            low_watermark: 1024 * 1024 * 2,
         };
         let core = UfoCore::new_ufo_core(config).expect("error getting core");
 
@@ -203,6 +210,14 @@ mod tests {
 
     #[test]
     fn reverse_iterate() -> Result<(), UfoAllocateErr> {
+        // use stderrlog;
+        // stderrlog::new()
+        //     // .module("ufo_core")
+        //     .verbosity(4)
+        //     .timestamp(stderrlog::Timestamp::Microsecond)
+        //     .init()
+        //     .unwrap();
+
         let ct = 1000 * 1000;
         let (core, o) = basic_test_object::<u32>(1, ct, 4096, false)?;
 
@@ -234,8 +249,8 @@ mod tests {
         //     .init()
         //     .unwrap();
 
-        let ct = 1000 * 1000 * 2000;
-        let (core, o) = basic_test_object::<u64>(0, ct, 4 * 1024 * 1024, false)?;
+        let ct = 1000 * 1000 * 50;
+        let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
@@ -252,28 +267,32 @@ mod tests {
 
     #[test]
     fn large_write() -> anyhow::Result<()> {
-        // use stderrlog;
-        // stderrlog::new()
-        //     // .module("ufo_core")
-        //     .verbosity(4)
-        //     .timestamp(stderrlog::Timestamp::Millisecond)
-        //     .init()
-        //     .unwrap();
+        use stderrlog;
+        stderrlog::new()
+            // .module("ufo_core")
+            .verbosity(4)
+            .timestamp(stderrlog::Timestamp::Millisecond)
+            .init()
+            .unwrap();
 
-        let ct = 1000 * 1000 * 200;
+        let ct = 1000 * 1000 * 50;
         let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
+        println!("verify initial contents");
         let arr =
             unsafe { std::slice::from_raw_parts_mut(o.body_ptr().unwrap().cast::<u64>(), ct) };
 
+        println!("write one");
         arr[0] = 14;
 
+        println!("run the array again");
         for x in 1..ct {
             if !(x as u64 == arr[x]) {
                 anyhow::bail!("{} != {}", x, arr[x]);
             }
         }
 
+        println!("verify write");
         assert_eq!(14, arr[0]);
 
         std::mem::drop(core);
@@ -290,7 +309,7 @@ mod tests {
         //     .init()
         //     .unwrap();
 
-        let ct = 1024 * 1024 * 200;
+        let ct = 1024 * 1024 * 50;
         let (core, o) = basic_test_object::<u64>(0, ct, 1024 * 1024, false)?;
 
         let arr =
@@ -312,15 +331,15 @@ mod tests {
             }
         }
 
-        for x in 0..ct {
-            arr[x] = 8;
-        }
+        // for x in 0..ct {
+        //     arr[x] = 8;
+        // }
 
-        for x in 0..ct {
-            if 8 != arr[x] {
-                anyhow::bail!("  7 != {} @ {}", arr[x], x);
-            }
-        }
+        // for x in 0..ct {
+        //     if 8 != arr[x] {
+        //         anyhow::bail!("  7 != {} @ {}", arr[x], x);
+        //     }
+        // }
 
         o.reset()?;
 
