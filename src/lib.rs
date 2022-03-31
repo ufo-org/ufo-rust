@@ -8,6 +8,12 @@ pub struct UfoCore {
     core: Arc<ufo_core::UfoCore>,
 }
 
+impl std::fmt::Debug for UfoCore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UfoCore").field("core", &"...").finish()
+    }
+}
+
 impl UfoCore {
     pub fn new_ufo_core(config: UfoCoreConfig) -> Result<UfoCore, Error> {
         let core = ufo_core::UfoCore::new(config)?;
