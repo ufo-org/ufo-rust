@@ -3,6 +3,7 @@
 use std::{io::Error, sync::Arc};
 use ufo_core::*;
 
+#[derive(Clone)]
 pub struct UfoCore {
     core: Arc<ufo_core::UfoCore>,
 }
