@@ -1,5 +1,5 @@
 [package]
-name = "ufos"
+name = "ufo"
 version = "0.1.0"
 authors = ["Colette 🌩︎‍💝 Kerr <Colette.m.y.Kerr@gmail.com>"]
 edition = "2018"
@@ -10,8 +10,8 @@ edition = "2018"
 anyhow = "1.0.38"
 crossbeam = "0.8.0"
 num = "0.3.1"
-promissory = { git = "https://github.com/electroCutie/promissory", commit = "8f3fc2f2983f555de2019212671cc535a92e50a4" }
-ufos_core = { git = "https://github.com/ufo-org/ufo-core.git", branch = "main" }
+#promissory = { git = "https://github.com/electroCutie/promissory", commit = "8f3fc2f2983f555de2019212671cc535a92e50a4" }
+ufo_core = { git = "https://github.com/ufo-org/ufo-core.git", branch = "main" }
 #ufo_core = {path = "../ufo-core/" }
 
 stderrlog = "0.5.1"
